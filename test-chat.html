@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lingo AI Chat - Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .chat-settings {
+            background: #f5f5f5;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .settings-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .settings-row label {
+            font-weight: 500;
+            min-width: 80px;
+        }
+        .settings-row select, .settings-row input {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .message.user {
+            justify-content: flex-end;
+        }
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid #ddd;
+        }
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .corrections {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        .correction-item {
+            margin-bottom: 8px;
+        }
+        .correction-item:last-child {
+            margin-bottom: 0;
+        }
+        .original {
+            background: #ffebee;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .corrected {
+            background: #e8f5e9;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+        .chat-input-form {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+        }
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .send-btn:hover {
+            background: #5a67d8;
+        }
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .typing {
+            padding: 10px;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 Lingo AI Language Tutor</h1>
+            <p>Practice conversations with your AI language tutor</p>
+        </div>
+
+        <div class="chat-settings">
+            <div class="settings-row">
+                <label>Language:</label>
+                <select id="languageSelect">
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="German">German</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Portuguese">Portuguese</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Korean">Korean</option>
+                </select>
+
+                <label>Style:</label>
+                <select id="coachingStyleSelect">
+                    <option value="encouraging">Encouraging</option>
+                    <option value="conversational">Conversational</option>
+                    <option value="corrective">Corrective</option>
+                </select>
+
+                <label>User ID:</label>
+                <input type="text" id="userIdInput" placeholder="Enter your ID" value="test-user-123">
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="status" id="status"></div>
+
+        <div class="chat-input-container">
+            <form class="chat-input-form" id="chatForm">
+                <input 
+                    type="text" 
+                    class="chat-input" 
+                    id="messageInput" 
+                    placeholder="Type your message in the selected language..."
+                    autocomplete="off"
+                >
+                <button type="submit" class="send-btn" id="sendBtn">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const CHAT_URL = 'https://us-central1-lingo-ai-cebf1.cloudfunctions.net/chat';
+        
+        let conversationId = null;
+        let isLoading = false;
+
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const status = document.getElementById('status');
+        const chatForm = document.getElementById('chatForm');
+
+        function addMessage(content, type, corrections = null, timestamp = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            if (timestamp) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = new Date(timestamp).toLocaleTimeString();
+                contentDiv.appendChild(timeDiv);
+            }
+            
+            messageDiv.appendChild(contentDiv);
+            
+            if (corrections && corrections.length > 0) {
+                const correctionsDiv = document.createElement('div');
+                correctionsDiv.className = 'corrections';
+                correctionsDiv.innerHTML = '<strong>Corrections:</strong><br>';
+                
+                corrections.forEach(correction => {
+                    const correctionItem = document.createElement('div');
+                    correctionItem.className = 'correction-item';
+                    correctionItem.innerHTML = `
+                        <span class="original">${correction.original}</span> → 
+                        <span class="corrected">${correction.corrected}</span><br>
+                        <small><em>${correction.explanation}</em></small>
+                    `;
+                    correctionsDiv.appendChild(correctionItem);
+                });
+                
+                contentDiv.appendChild(correctionsDiv);
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function setLoading(loading) {
+            isLoading = loading;
+            sendBtn.disabled = loading;
+            sendBtn.textContent = loading ? 'Sending...' : 'Send';
+            
+            if (loading) {
+                status.textContent = '🤖 AI is typing...';
+                status.style.display = 'block';
+            } else {
+                status.style.display = 'none';
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isLoading) return;
+
+            const language = document.getElementById('languageSelect').value;
+            const coachingStyle = document.getElementById('coachingStyleSelect').value;
+            const userId = document.getElementById('userIdInput').value || 'anonymous';
+
+            addMessage(message, 'user', null, new Date().toISOString());
+            messageInput.value = '';
+            setLoading(true);
+
+            try {
+                const response = await fetch(CHAT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message,
+                        conversationId,
+                        userId,
+                        language,
+                        coachingStyle,
+                        includeCorrections: true
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    conversationId = data.conversationId;
+                    addMessage(
+                        data.reply, 
+                        'assistant', 
+                        data.corrections || null,
+                        data.timestamp
+                    );
+                } else {
+                    throw new Error(data.error || 'Failed to get response');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`❌ Error: ${error.message}`, 'assistant');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendMessage();
+        });
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Initialize with a welcome message
+        addMessage(
+            `Hello! I'm your AI language tutor. Select your target language and coaching style above, then start practicing! 
+            
+            Try saying "Hola, ¿cómo estás?" in Spanish or "Bonjour, comment allez-vous?" in French.`, 
+            'assistant',
+            null,
+            new Date().toISOString()
+        );
+    </script>
+</body>
+</html>
